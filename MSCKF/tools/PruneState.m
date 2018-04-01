@@ -22,7 +22,7 @@ state_idx = 1:size(msckf_state.cam_cov, 1);
 cov_mask = true(1, numel(state_idx));
 
 for idx = del_idx
-    cov_mask(6*idx-5:6*idx) = false(6,1);
+    cov_mask(6*idx-5:6*idx) = false(1,6);
 end
 
 cov_idx = state_idx(cov_mask);
@@ -36,7 +36,7 @@ del_cam_cov = msckf_state.cam_cov(del_cov_idx, del_cov_idx);
 del_cam_sig = sqrt(diag(del_cam_cov));
 
 for idx = 1:size(del_cam_states, 2)
-    del_cam_state{idx}.sigma = del_cam_sig(6*idx-5:6*idx);
+    del_cam_states{idx}.sigma = del_cam_sig(6*idx-5:6*idx);
 end
 
 end
