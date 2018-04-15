@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 addpath('tools')
-fileName = '2011_09_26_drive_0095_sync_KLT.mat';
+fileName = '2011_09_26_drive_0039_sync_KLT.mat';
 load(fileName);
 
 %% Initialize Parameters
@@ -81,6 +81,14 @@ num_lm_cor = 0;  % number of landmarks in the correction step
 map = [];  % landmark positions in the correction step
 num_lms = size(all_cam_obs, 3); % total number of landmarks
 
+%% Plot
+% fps = 1;
+% video_name = 'msckf.avi';
+% writerObj = VideoWriter(video_name);
+% writerObj.open();
+% fig_handle = figure();
+% set(gcf, 'color', 'white')
+t_start = clock;
 for sidx = start_idx:(end_idx -1)
     fprintf('State index = %d\n', sidx)
     %% Propagate State Using IMU Motion Model
@@ -224,14 +232,45 @@ for sidx = start_idx:(end_idx -1)
             imu_pos(:,k) = imuonly_state{kidx}.imu_state.pos;
             kplot(k) = kidx;
         end     
-        figure(1); clf; hold on;
-        plot3(est_pos(1,:), est_pos(2,:), est_pos(3,:), '-b');
-        plot3(imu_pos(1,:), imu_pos(2,:), imu_pos(3,:), '-r');
-        plot3(groundtruth.pos(1,kplot), groundtruth.pos(2,kplot), groundtruth.pos(3,kplot), '-g');
-        xlabel('x'); ylabel('y'); zlabel('z');
-        legend('MSCKF Estimation', 'IMU Only', 'Groundtruth');
-        grid on;
-        drawnow;
     end
+    est_state{sidx}.pos = msckf_state.imu_state.pos;
+    est_state{sidx}.quat = msckf_state.imu_state.quat;
+%     figure(fig_handle); 
+%     hold on;
+%     plot3(msckf_state.imu_state.pos(1), msckf_state.imu_state.pos(2,:), msckf_state.imu_state.pos(3,:), 'ob');
+%     plot3(imuonly_state{sidx}.imu_state.pos(1), imuonly_state{sidx}.imu_state.pos(2,:), imuonly_state{sidx}.imu_state.pos(3,:), 'or');
+%     plot3(groundtruth.pos(1,sidx), groundtruth.pos(2,sidx), groundtruth.pos(3,sidx), 'og');
+%     xlabel('x'); ylabel('y'); zlabel('z');
+%     legend('MSCKF Estimation', 'IMU Only', 'Groundtruth');
+%     grid on;
+%     axis([0, 150, -150, 0, 0, 6])
+%     view(3)
+%     if mod(sidx, fps) == 0
+%             frame = getframe(fig_handle);
+%             writerObj.writeVideo(frame);
+%     end
 end
+% writerObj.close();
+% close(fig_handle);
+t_end = clock;
+duration = etime(t_end, t_start);
+%% Calculate Error
+knum = length(pruned_states);
+mse_idx = ones(1, knum);
+for k = 1:knum
+    state_idx = pruned_states{k}.idx;
+    real_cam_pos(:,k) = true_state{state_idx}.cam_pos;
+    est_cam_pos(:,k) = pruned_states{k}.pos;
+    imu_cam_pos(:,k) = imuonly_state{state_idx}.imu_state.pos + Quat2Rot(imuonly_state{state_idx}.imu_state.quat)'*cam.v_P_c;
+    mse_idx(k) = state_idx;
+end
+cam_pos_err = est_cam_pos - real_cam_pos;
+cam_pos_mse = sqrt(mean(cam_pos_err.^2));
 
+imu_cam_pos_err = imu_cam_pos - real_cam_pos;
+imu_cam_pos_mse = sqrt(mean(imu_cam_pos_err.^2));
+
+save([fileName, 'msckf.mat'], 'duration', 'mse_idx', 'cam_pos_mse', 'imu_cam_pos_mse')
+
+% 
+% plot(mse_idx, cam_pos_mse, mse_idx, imu_cam_pos_mse);
